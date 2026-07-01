@@ -12,6 +12,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Some failures (e.g. a Cloudflare 504 in front of Supabase) surface as a raw,
+// stringified network response rather than a clean AuthError message.
+function toFriendlyError(error: { message?: string } | null): string | null {
+  if (!error?.message) return null;
+  const looksRaw = error.message.trim().startsWith('{') || error.message.length > 200;
+  if (looksRaw) {
+    console.warn('Auth request failed:', error.message);
+    return 'Something went wrong reaching the server. Please try again in a moment.';
+  }
+  return error.message;
+}
+
 export function useAuth() {
   const value = use(AuthContext);
   if (!value) {
@@ -39,12 +51,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function sendOtp(email: string) {
     const { error } = await supabase.auth.signInWithOtp({ email });
-    return { error: error?.message ?? null };
+    return { error: toFriendlyError(error) };
   }
 
   async function verifyOtp(email: string, token: string) {
     const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-    return { error: error?.message ?? null };
+    return { error: toFriendlyError(error) };
   }
 
   async function signOut() {

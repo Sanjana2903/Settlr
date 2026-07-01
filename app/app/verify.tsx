@@ -17,8 +17,8 @@ export default function Verify() {
 
   async function handleVerify() {
     setError(null);
-    if (code.trim().length !== 6) {
-      setError('Enter the 6-digit code');
+    if (code.trim().length === 0) {
+      setError('Enter the code from your email');
       return;
     }
 
@@ -44,13 +44,13 @@ export default function Verify() {
   return (
     <ScreenContainer>
       <Text style={styles.title}>Check your email</Text>
-      <Text style={styles.subtitle}>We sent a 6-digit code to {email}</Text>
+      <Text style={styles.subtitle}>We sent a verification code to {email}</Text>
 
       <TextField
         label="Verification code"
-        placeholder="123456"
+        placeholder="Enter the code from your email"
         keyboardType="number-pad"
-        maxLength={6}
+        maxLength={12}
         value={code}
         onChangeText={setCode}
         error={error ?? undefined}
