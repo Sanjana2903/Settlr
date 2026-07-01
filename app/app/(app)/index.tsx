@@ -1,25 +1,64 @@
-import { Text, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { colors, spacing, typography } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthProvider';
+import { listMyGroups, type Group } from '../../lib/groups';
 
 export default function Home() {
-  const { session, signOut } = useAuth();
+  const { signOut } = useAuth();
+  const [groups, setGroups] = useState<Group[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadGroups = useCallback(() => {
+    setError(null);
+    listMyGroups()
+      .then(setGroups)
+      .catch((e) => setError(e.message ?? 'Failed to load groups'));
+  }, []);
+
+  useFocusEffect(loadGroups);
 
   return (
     <ScreenContainer>
       <Text style={styles.title}>Settlr</Text>
 
-      <Card>
-        <Text style={styles.cardLabel}>Signed in as</Text>
-        <Text style={styles.cardValue}>{session?.user.email}</Text>
-      </Card>
+      <View style={styles.actions}>
+        <Button label="New group" onPress={() => router.push('/groups/new')} />
+        <Button
+          label="Join with code"
+          variant="secondary"
+          onPress={() => router.push('/groups/join')}
+        />
+      </View>
 
-      <Text style={styles.placeholder}>
-        Groups, expenses, and balances land here in Phase 1.
-      </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {groups === null ? (
+        <ActivityIndicator style={styles.loading} />
+      ) : groups.length === 0 ? (
+        <Text style={styles.placeholder}>
+          No groups yet. Create one, or join with an invite code.
+        </Text>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => router.push(`/groups/${item.id}`)}>
+              <Card>
+                <Text style={styles.groupName}>{item.name}</Text>
+                <Text style={styles.groupMeta}>Invite code: {item.invite_code}</Text>
+              </Card>
+            </Pressable>
+          )}
+        />
+      )}
 
       <Button label="Sign out" variant="secondary" onPress={signOut} />
     </ScreenContainer>
@@ -28,7 +67,11 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   title: { ...typography.title, color: colors.text, marginTop: spacing.xxl },
-  cardLabel: { ...typography.caption, color: colors.textMuted },
-  cardValue: { ...typography.heading, color: colors.text },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  error: { ...typography.body, color: colors.danger },
+  loading: { flex: 1 },
   placeholder: { ...typography.body, color: colors.textMuted, flex: 1 },
+  list: { flex: 1, gap: spacing.sm },
+  groupName: { ...typography.heading, color: colors.text },
+  groupMeta: { ...typography.caption, color: colors.textMuted },
 });
