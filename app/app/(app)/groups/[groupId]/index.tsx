@@ -7,6 +7,7 @@ import { Card } from '../../../../components/Card';
 import { Button } from '../../../../components/Button';
 import { colors, spacing, typography } from '../../../../theme/tokens';
 import { getGroup, listGroupMembers, type Group, type GroupMember } from '../../../../lib/groups';
+import { getErrorMessage } from '../../../../lib/errors';
 
 export default function GroupDetail() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -21,7 +22,7 @@ export default function GroupDetail() {
         setGroup(groupData);
         setMembers(memberData);
       })
-      .catch((e) => setError(e.message ?? 'Failed to load group'));
+      .catch((e) => setError(getErrorMessage(e, 'Failed to load group')));
   }, [groupId]);
 
   useFocusEffect(load);

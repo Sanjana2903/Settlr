@@ -6,6 +6,7 @@ import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { colors, spacing, typography } from '../../../theme/tokens';
 import { createGroup } from '../../../lib/groups';
+import { getErrorMessage } from '../../../lib/errors';
 
 export default function NewGroup() {
   const [name, setName] = useState('');
@@ -25,7 +26,7 @@ export default function NewGroup() {
       const group = await createGroup(trimmed);
       router.replace(`/groups/${group.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create group');
+      setError(getErrorMessage(e, 'Failed to create group'));
     } finally {
       setLoading(false);
     }

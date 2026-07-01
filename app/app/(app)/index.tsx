@@ -8,6 +8,7 @@ import { Button } from '../../components/Button';
 import { colors, spacing, typography } from '../../theme/tokens';
 import { useAuth } from '../../context/AuthProvider';
 import { listMyGroups, type Group } from '../../lib/groups';
+import { getErrorMessage } from '../../lib/errors';
 
 export default function Home() {
   const { signOut } = useAuth();
@@ -18,7 +19,7 @@ export default function Home() {
     setError(null);
     listMyGroups()
       .then(setGroups)
-      .catch((e) => setError(e.message ?? 'Failed to load groups'));
+      .catch((e) => setError(getErrorMessage(e, 'Failed to load groups')));
   }, []);
 
   useFocusEffect(loadGroups);

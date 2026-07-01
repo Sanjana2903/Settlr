@@ -6,6 +6,7 @@ import { TextField } from '../../../components/TextField';
 import { Button } from '../../../components/Button';
 import { colors, spacing, typography } from '../../../theme/tokens';
 import { joinGroupByInviteCode } from '../../../lib/groups';
+import { getErrorMessage } from '../../../lib/errors';
 
 export default function JoinGroup() {
   const [code, setCode] = useState('');
@@ -25,7 +26,7 @@ export default function JoinGroup() {
       const group = await joinGroupByInviteCode(trimmed);
       router.replace(`/groups/${group.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to join group');
+      setError(getErrorMessage(e, 'Failed to join group'));
     } finally {
       setLoading(false);
     }
