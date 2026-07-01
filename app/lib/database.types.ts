@@ -294,6 +294,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_group: {
+        Args: { p_name: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          id: string
+          invite_code: string
+          name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "groups"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: boolean

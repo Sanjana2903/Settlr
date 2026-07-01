@@ -33,16 +33,7 @@ export async function getGroup(groupId: string): Promise<Group> {
 }
 
 export async function createGroup(name: string): Promise<Group> {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-  const userId = userData.user?.id;
-  if (!userId) throw new Error('Not signed in');
-
-  const { data, error } = await supabase
-    .from('groups')
-    .insert({ name, created_by: userId })
-    .select('id, name, invite_code, created_at')
-    .single();
+  const { data, error } = await supabase.rpc('create_group', { p_name: name });
   if (error) throw error;
   return data;
 }
