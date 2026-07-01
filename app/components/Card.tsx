@@ -1,0 +1,21 @@
+import { PropsWithChildren } from 'react';
+import { StyleSheet, View, ViewProps } from 'react-native';
+import { colors, radius, spacing } from '../theme/tokens';
+
+export function Card({ children, style, ...viewProps }: PropsWithChildren<ViewProps>) {
+  return (
+    <View style={[styles.card, style]} {...viewProps}>
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+});
