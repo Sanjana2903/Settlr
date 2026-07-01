@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 // Supabase's session tokens can exceed SecureStore's ~2KB per-key limit, so we
 // keep the encrypted payload in AsyncStorage and only the AES key in SecureStore.
@@ -60,7 +61,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: new LargeSecureStore(),
     autoRefreshToken: true,

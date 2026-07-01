@@ -37,7 +37,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "gen:types": "supabase gen types typescript --linked > lib/database.types.ts"
   },
   "jest": {
     "preset": "jest-expo"
