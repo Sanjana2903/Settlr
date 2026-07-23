@@ -195,18 +195,21 @@ export type Database = {
           display_name: string | null
           email: string
           id: string
+          upi_vpa: string | null
         }
         Insert: {
           created_at?: string
           display_name?: string | null
           email: string
           id: string
+          upi_vpa?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string | null
           email?: string
           id?: string
+          upi_vpa?: string | null
         }
         Relationships: []
       }

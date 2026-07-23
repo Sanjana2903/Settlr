@@ -26,7 +26,10 @@ export default function Home() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Settlr</Text>
+      <Pressable onPress={() => router.push('/profile')}>
+        <Text style={styles.title}>Settlr</Text>
+        <Text style={styles.titleHint}>Tap for your profile and UPI ID</Text>
+      </Pressable>
 
       <View style={styles.actions}>
         <Button label="New group" onPress={() => router.push('/groups/new')} />
@@ -68,6 +71,7 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   title: { ...typography.title, color: colors.text, marginTop: spacing.xxl },
+  titleHint: { ...typography.caption, color: colors.textMuted },
   actions: { flexDirection: 'row', gap: spacing.sm },
   error: { ...typography.body, color: colors.danger },
   loading: { flex: 1 },
