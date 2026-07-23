@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../../../components/ScreenContainer';
@@ -9,8 +9,14 @@ import { colors, radius, spacing, typography } from '../../../../theme/tokens';
 import { useAuth } from '../../../../context/AuthProvider';
 import { getGroup, listGroupMembers, type Group, type GroupMember } from '../../../../lib/groups';
 import { listExpenses, listExpenseSplits, type Expense } from '../../../../lib/expenses';
-import { listSettlements, recordSettlement, type Settlement } from '../../../../lib/settlements';
+import {
+  listSettlements,
+  createPendingSettlement,
+  confirmSettlement,
+  type Settlement,
+} from '../../../../lib/settlements';
 import { computeNetBalances, simplifyDebts, type SettlementSuggestion } from '../../../../lib/balances';
+import { buildUpiPaymentLink } from '../../../../lib/upi';
 import { getErrorMessage } from '../../../../lib/errors';
 
 function memberName(member: GroupMember | undefined, fallbackId: string) {
@@ -28,7 +34,8 @@ export default function GroupDetail() {
   const [settlements, setSettlements] = useState<Settlement[] | null>(null);
   const [suggestions, setSuggestions] = useState<SettlementSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [settlingKey, setSettlingKey] = useState<string | null>(null);
+  const [actionKey, setActionKey] = useState<string | null>(null);
+  const [awaitingConfirmKey, setAwaitingConfirmKey] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -61,16 +68,56 @@ export default function GroupDetail() {
 
   useFocusEffect(load);
 
-  async function handleMarkPaid(suggestion: SettlementSuggestion) {
+  async function handlePayNow(suggestion: SettlementSuggestion) {
     const key = `${suggestion.from}-${suggestion.to}`;
-    setSettlingKey(key);
+    setError(null);
+
+    const creditor = members?.find((m) => m.user_id === suggestion.to);
+    const creditorVpa = creditor?.profile?.upi_vpa;
+    if (!creditorVpa) {
+      setError(
+        `${memberName(creditor, suggestion.to)} hasn't set up a UPI ID yet, so a payment link can't be created.`
+      );
+      return;
+    }
+
     try {
-      await recordSettlement(groupId, suggestion.from, suggestion.to, suggestion.amount);
+      const link = buildUpiPaymentLink({
+        payeeVpa: creditorVpa,
+        payeeName: memberName(creditor, suggestion.to),
+        amount: suggestion.amount,
+        note: group?.name ?? 'Settlr',
+      });
+      await Linking.openURL(link);
+      setAwaitingConfirmKey(key);
+    } catch (e) {
+      setError(getErrorMessage(e, 'No UPI app found to open the payment link'));
+    }
+  }
+
+  async function handleIvePaid(suggestion: SettlementSuggestion) {
+    const key = `${suggestion.from}-${suggestion.to}`;
+    setActionKey(key);
+    try {
+      await createPendingSettlement(groupId, suggestion.from, suggestion.to, suggestion.amount);
+      setAwaitingConfirmKey(null);
       load();
     } catch (e) {
-      setError(getErrorMessage(e, 'Failed to record settlement'));
+      setError(getErrorMessage(e, 'Failed to record payment'));
     } finally {
-      setSettlingKey(null);
+      setActionKey(null);
+    }
+  }
+
+  async function handleConfirmReceived(settlement: Settlement) {
+    setActionKey(settlement.id);
+    try {
+      await confirmSettlement(settlement.id);
+      load();
+    } catch (e) {
+      setError(getErrorMessage(e, 'Failed to confirm settlement'));
+    } finally {
+      setActionKey(null);
     }
   }
 
@@ -91,6 +138,8 @@ export default function GroupDetail() {
   }
 
   const membersById = new Map(members.map((m) => [m.user_id, m]));
+  const pendingSettlements = settlements.filter((s) => s.status === 'pending');
+  const awaitingMyConfirmation = pendingSettlements.filter((s) => s.to_user === currentUserId);
 
   return (
     <View style={styles.screen}>
@@ -106,6 +155,25 @@ export default function GroupDetail() {
                 <Text style={styles.titleHint}>Tap for invite code and members</Text>
               </Pressable>
 
+              {awaitingMyConfirmation.length > 0 && (
+                <>
+                  <Text style={styles.sectionLabel}>Pending confirmation</Text>
+                  {awaitingMyConfirmation.map((s) => (
+                    <Card key={s.id} style={styles.balanceCard}>
+                      <Text style={styles.balanceText}>
+                        {memberName(membersById.get(s.from_user), s.from_user)} says they paid you ₹
+                        {s.amount.toFixed(2)}
+                      </Text>
+                      <Button
+                        label="Confirm received"
+                        loading={actionKey === s.id}
+                        onPress={() => handleConfirmReceived(s)}
+                      />
+                    </Card>
+                  ))}
+                </>
+              )}
+
               <Text style={styles.sectionLabel}>Balances</Text>
               {suggestions.length === 0 ? (
                 <Text style={styles.placeholder}>Everyone is settled up.</Text>
@@ -116,18 +184,31 @@ export default function GroupDetail() {
                     s.from === currentUserId ? 'You' : memberName(membersById.get(s.from), s.from);
                   const toLabel =
                     s.to === currentUserId ? 'you' : memberName(membersById.get(s.to), s.to);
+                  const hasPendingSettlement = pendingSettlements.some(
+                    (p) => p.from_user === s.from && p.to_user === s.to
+                  );
+
                   return (
                     <Card key={key} style={styles.balanceCard}>
                       <Text style={styles.balanceText}>
                         {fromLabel} owe{s.from === currentUserId ? '' : 's'} {toLabel} ₹
                         {s.amount.toFixed(2)}
                       </Text>
-                      {s.from === currentUserId && (
+
+                      {s.from === currentUserId && hasPendingSettlement && (
+                        <Text style={styles.pendingHint}>Waiting for {toLabel} to confirm</Text>
+                      )}
+
+                      {s.from === currentUserId && !hasPendingSettlement && awaitingConfirmKey !== key && (
+                        <Button label="Pay now" onPress={() => handlePayNow(s)} />
+                      )}
+
+                      {s.from === currentUserId && !hasPendingSettlement && awaitingConfirmKey === key && (
                         <Button
-                          label="Mark as paid"
+                          label="I've paid"
                           variant="secondary"
-                          loading={settlingKey === key}
-                          onPress={() => handleMarkPaid(s)}
+                          loading={actionKey === key}
+                          onPress={() => handleIvePaid(s)}
                         />
                       )}
                     </Card>
@@ -172,6 +253,7 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   balanceCard: { marginBottom: spacing.sm, gap: spacing.sm },
   balanceText: { ...typography.body, color: colors.text },
+  pendingHint: { ...typography.caption, color: colors.textMuted },
   expenseCard: { marginBottom: spacing.sm },
   expenseDescription: { ...typography.body, color: colors.text, fontWeight: '600' },
   expenseMeta: { ...typography.caption, color: colors.textMuted },

@@ -10,7 +10,12 @@ export type Group = {
 export type GroupMember = {
   user_id: string;
   joined_at: string;
-  profile: { id: string; email: string; display_name: string | null } | null;
+  profile: {
+    id: string;
+    email: string;
+    display_name: string | null;
+    upi_vpa: string | null;
+  } | null;
 };
 
 export async function listMyGroups(): Promise<Group[]> {
@@ -49,7 +54,7 @@ export async function joinGroupByInviteCode(inviteCode: string): Promise<Group> 
 export async function listGroupMembers(groupId: string): Promise<GroupMember[]> {
   const { data, error } = await supabase
     .from('group_members')
-    .select('user_id, joined_at, profile:profiles(id, email, display_name)')
+    .select('user_id, joined_at, profile:profiles(id, email, display_name, upi_vpa)')
     .eq('group_id', groupId);
   if (error) throw error;
   return data as unknown as GroupMember[];

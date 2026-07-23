@@ -20,9 +20,9 @@ export async function listSettlements(groupId: string): Promise<Settlement[]> {
   return data as Settlement[];
 }
 
-// MVP: recording a settlement just marks it confirmed immediately (no UPI
-// deep-link handoff or two-way confirmation yet -- that's a Phase 2 feature).
-export async function recordSettlement(
+// The payer records this after completing the UPI payment ("I've paid"), but
+// it doesn't count toward balances until the payee confirms they received it.
+export async function createPendingSettlement(
   groupId: string,
   fromUser: string,
   toUser: string,
@@ -35,9 +35,19 @@ export async function recordSettlement(
       from_user: fromUser,
       to_user: toUser,
       amount,
-      status: 'confirmed',
-      confirmed_at: new Date().toISOString(),
+      status: 'pending',
     })
+    .select('id, group_id, from_user, to_user, amount, status, created_at, confirmed_at')
+    .single();
+  if (error) throw error;
+  return data as Settlement;
+}
+
+export async function confirmSettlement(settlementId: string): Promise<Settlement> {
+  const { data, error } = await supabase
+    .from('settlements')
+    .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+    .eq('id', settlementId)
     .select('id, group_id, from_user, to_user, amount, status, created_at, confirmed_at')
     .single();
   if (error) throw error;
